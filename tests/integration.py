@@ -166,11 +166,48 @@ def main():
         request('DELETE',p('finance_members')+'/'+role['id'],token=admin,expected=204)
         assert sql('SELECT * FROM bills')==[]
         file_get(token,404)
+        # Real SSE connections: admin is a positive delivery control; ordinary
+        # subscriptions must never bypass the locked REST read policies.
+        import queue
+        import threading
+        def subscriber(auth):
+            messages=queue.Queue()
+            def listen():
+                try:
+                    with urllib.request.urlopen(request.base_url+'/api/realtime',timeout=10) as response:
+                        event,data='',''
+                        for raw in response:
+                            line=raw.decode().strip()
+                            if line.startswith('event:'):event=line[6:].strip()
+                            elif line.startswith('data:'):data=line[5:].strip()
+                            elif not line and event:
+                                messages.put((event,json.loads(data)));event,data='',''
+                except Exception as exc:messages.put(('error',str(exc)))
+            threading.Thread(target=listen,daemon=True).start()
+            event,data=messages.get(timeout=5)
+            assert event=='PB_CONNECT',(event,data)
+            subscription={'clientId':data['clientId'],'subscriptions':['claims/*','documents/*','audit_log/*']}
+            request('POST','/api/realtime',subscription,auth,expected=204)
+            return messages,subscription
+        visible,control=subscriber(admin)
+        hidden,subscription=subscriber(ot)
+        liveclaim=create('claims',{'owner':foreign['id'],'title':'Foreign SSE claim','currency':'USD','currency_exponent':2,'amount_minor':100,'status':'draft'},ft)
+        livefile,_=upload(foreign['id'],ft,'Foreign SSE original')
+        seen=set()
+        for _ in range(8):
+            event,data=visible.get(timeout=5)
+            assert event!='error',(event,data)
+            seen.add((data.get('record',{}).get('collectionName'),data.get('record',{}).get('id')))
+            if ('claims',liveclaim['id']) in seen and ('documents',livefile['id']) in seen and any(t=='audit_log' for t,i in seen):break
+        assert ('claims',liveclaim['id']) in seen and ('documents',livefile['id']) in seen
+        try:raise AssertionError(('Ordinary subscriber received financial event',hidden.get(timeout=.4)))
+        except queue.Empty:pass
         saved_file_token=request('POST','/api/files/token',{},ot)['token']
         request('PATCH',p('users')+'/'+other['id'],{'disabled':True},admin)
         saved_url=request.base_url+'/api/files/'+doc['collectionId']+'/'+doc['id']+'/'+doc['original']+'?token='+saved_file_token
         try: urllib.request.urlopen(saved_url);raise AssertionError('Disabled file token accepted')
         except urllib.error.HTTPError as exc: assert exc.code in (401,403,404)
         request('POST','/api/context/query',{'sql':'SELECT * FROM claims'},ot,(401,403))
+        request('POST','/api/realtime',subscription,ot,expected=401)
     print('AccountContext integration and document security checks passed')
 if __name__=='__main__':main()
