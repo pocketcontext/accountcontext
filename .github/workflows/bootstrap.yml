@@ -1,0 +1,37 @@
+name: Initial production deployment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: deploy-once-pocketcontext
+  cancel-in-progress: false
+jobs:
+  bootstrap:
+    runs-on: ubuntu-24.04
+    environment: once-pocketcontext
+    timeout-minutes: 15
+    steps:
+      - name: Invoke prepared one-use deployment wrapper
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_IP: ${{ vars.SERVER_IP }}
+          SERVER_USER: ${{ vars.SERVER_USER }}
+          SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          eval "$(ssh-agent -s)"
+          trap 'ssh-agent -k >/dev/null' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+          test -n "$SSH_KNOWN_HOSTS"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          python3 -c 'import os,json; print(json.dumps({"username":os.environ["REGISTRY_USER"],"token":os.environ["REGISTRY_TOKEN"]}))' |
+            ssh -T -o StrictHostKeyChecking=yes "$SERVER_USER@$SERVER_IP"
+      - name: Check public health
+        run: curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors --max-time 20 https://accounts.pocketcontext.com/up

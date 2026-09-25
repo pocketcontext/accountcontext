@@ -18,6 +18,8 @@ jobs:
         run: python3 accountcontext/tests/deploy_workflow.py
       - name: Test complete evidence backups
         run: python3 accountcontext/tests/backup.py
+      - name: Test initial deployment orchestration
+        run: python3 accountcontext/tests/bootstrap.py
       - name: Read server revision
         id: server
         shell: bash

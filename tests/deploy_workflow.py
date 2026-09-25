@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Exercise deployment orchestration without Docker, root, network or credentials."""
 import importlib.util
+import io
+import os
+from types import SimpleNamespace
 import json
 from pathlib import Path
 import sys
@@ -106,6 +109,69 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(installer.rewrite_keys(result), result)
         with self.assertRaises(RuntimeError):
             installer.rewrite_keys(website)
+
+    def test_registry_stdin_empty_is_anonymous(self):
+        self.assertIsNone(hook.read_credentials(io.BytesIO(b'')))
+
+    def test_registry_stdin_valid_is_bounded(self):
+        value = {'username': 'github-actions[bot]', 'token': 'ghs_' + 'A' * 30}
+        self.assertEqual(hook.read_credentials(io.BytesIO(json.dumps(value).encode())), value)
+        with self.assertRaisesRegex(RuntimeError, 'exceeds limit'):
+            hook.read_credentials(io.BytesIO(b'A' * (hook.MAX_CREDENTIAL_BYTES + 1)))
+
+    def test_registry_stdin_rejects_malformed_values_without_echo(self):
+        secret = 'SECRET_MUST_NOT_APPEAR'
+        cases = [secret, json.dumps({'token': secret}), json.dumps({'username': '--bad', 'token': secret}),
+                 json.dumps({'username': 'user', 'token': secret, 'host': 'other-host'}),
+                 json.dumps({'username': 'user', 'token': secret + '\n'}), '[]', 'null']
+        for value in cases:
+            with self.assertRaises(RuntimeError) as raised:
+                hook.read_credentials(io.BytesIO(value.encode()))
+            self.assertNotIn(secret, str(raised.exception))
+
+    def test_registry_config_private_and_removed_after_success(self):
+        original = hook.ENV.copy()
+        credentials = {'username': 'user', 'token': 'ghs_' + 'A' * 30}
+        config = None
+        def login(args, **kwargs):
+            self.assertEqual(args, ['docker', 'login', 'ghcr.io', '--username', 'user', '--password-stdin'])
+            self.assertNotIn(credentials['token'], str(args))
+            self.assertEqual(kwargs['input'], credentials['token'] + '\n')
+            self.assertEqual(kwargs['stdout'], hook.subprocess.PIPE)
+            self.assertEqual(kwargs['stderr'], hook.subprocess.PIPE)
+            self.assertEqual(os.stat(kwargs['env']['DOCKER_CONFIG']).st_mode & 0o777, 0o700)
+            return SimpleNamespace(returncode=0)
+        with patch.object(hook.subprocess, 'run', side_effect=login):
+            with hook.registry_auth(credentials):
+                config = Path(hook.ENV['DOCKER_CONFIG'])
+                self.assertTrue(config.is_dir())
+        self.assertFalse(config.exists())
+        self.assertEqual(hook.ENV, original)
+
+    def test_registry_login_failure_is_redacted_and_config_removed(self):
+        original = hook.ENV.copy()
+        seen = []
+        def login(args, **kwargs):
+            seen.append(Path(kwargs['env']['DOCKER_CONFIG']))
+            return SimpleNamespace(returncode=1, stdout='SYNTHETIC_SECRET', stderr='SYNTHETIC_SECRET')
+        with patch.object(hook.subprocess, 'run', side_effect=login):
+            with self.assertRaisesRegex(RuntimeError, '^Registry authentication failed$'):
+                with hook.registry_auth({'username': 'user', 'token': 'SYNTHETIC_SECRET'}):
+                    self.fail('deploy must not run after failed authentication')
+        self.assertFalse(seen[0].exists())
+        self.assertEqual(hook.ENV, original)
+
+    def test_registry_config_removed_on_deploy_failure_and_anonymous_isolated(self):
+        original = hook.ENV.copy()
+        with patch.object(hook.subprocess, 'run') as login:
+            with self.assertRaises(RuntimeError):
+                with hook.registry_auth(None):
+                    config = Path(hook.ENV['DOCKER_CONFIG'])
+                    self.assertTrue(config.is_dir())
+                    raise RuntimeError('synthetic deployment failure')
+            login.assert_not_called()
+        self.assertFalse(config.exists())
+        self.assertEqual(hook.ENV, original)
 
 
 if __name__ == "__main__":

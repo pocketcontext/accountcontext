@@ -50,6 +50,7 @@ python3 tests/deploy.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/oauth.py
 python3 tests/client.py
 python3 tests/deploy_workflow.py
+python3 tests/bootstrap.py
 python3 tests/backup.py
 python3 tests/backup_integration.py --binary /absolute/path/to/pinned/pocketcontext
 ```
@@ -59,3 +60,5 @@ Container release gates additionally run `docker/smoke.py config`, `smoke`, and 
 Disable ONCE automatic updates. Replace the app only through its dedicated locked graceful-stop wrapper, preserving one writer. Deployment uses a dedicated private R2 bucket/prefix, separate operator credentials and deployment key. Preserve sibling apps and never restore a second writer against the active production replica.
 
 Infrastructure and client patterns were adapted from RaiseContext and TaskContext; requester filtering follows PeopleContext, using default `users` identities throughout.
+
+Public tested container archives are published in [GitHub Releases](https://github.com/pocketcontext/accountcontext/releases); see [deployment transport](deploy/README.md) for checksums and registry authentication.

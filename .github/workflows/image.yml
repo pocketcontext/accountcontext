@@ -112,7 +112,30 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # One imagetools call creates both tags from the digests of this run.
+      # Public image distribution is through GitHub Releases, independently of GHCR
+      # package visibility. Archives contain only this clean, tested container image.
+      - name: Export image archive for public release
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          case "$ARCH" in arm) platform=arm64 ;; amd) platform=amd64 ;; *) exit 1 ;; esac
+          mkdir -p /tmp/images
+          docker pull "$IMAGE@$DIGEST"
+          docker tag "$IMAGE@$DIGEST" "$IMAGE:sha-$GITHUB_SHA"
+          docker save "$IMAGE:sha-$GITHUB_SHA" | gzip > "/tmp/images/accountcontext-linux-$platform.tar.gz"
+          cd /tmp/images
+          sha256sum "accountcontext-linux-$platform.tar.gz" > "accountcontext-linux-$platform.tar.gz.sha256"
+          printf 'Source: %s\nPlatform: linux/%s\nRegistry digest: %s\n' "$GITHUB_SHA" "$platform" "$DIGEST" > "accountcontext-linux-$platform.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: public-image-${{ matrix.arch }}
+          path: /tmp/images/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # One imagetools call creates the current and source tags from this run.
   manifest:
     needs:
       - build
@@ -147,17 +170,56 @@ jobs:
           docker buildx imagetools create \
             --tag "$IMAGE:latest" \
             --tag "$IMAGE:sha-${GITHUB_SHA::7}" \
+            --tag "$IMAGE:sha-$GITHUB_SHA" \
             $sources
       - name: Show what was published
         run: docker buildx imagetools inspect "$IMAGE:latest"
 
-  deploy:
-    if: vars.COLORS_PROFILE != ''
+  public-release:
+    # GHCR defaults private. Release assets make the tested images publicly downloadable
+    # without claiming that anonymous GHCR pulls work or requiring a browser setting.
     needs:
       - manifest
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: /tmp/images
+          pattern: public-image-*
+          merge-multiple: true
+      - name: Publish verified public container archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        working-directory: /tmp/images
+        run: |
+          set -euo pipefail
+          sha256sum --check ./*.sha256
+          test -f accountcontext-linux-amd64.tar.gz
+          test -f accountcontext-linux-arm64.tar.gz
+          printf '%s\n' \
+            'Public AccountContext container images for Linux AMD64 and ARM64.' \
+            "Source revision: $GITHUB_SHA" \
+            'Verify the matching SHA-256 file, then use docker load --input on the archive.' \
+            "The loaded image is ghcr.io/pocketcontext/accountcontext:sha-$GITHUB_SHA." \
+            'GHCR package visibility is independent and may remain private; these release assets are public.' \
+            'Application, authentication, complete evidence recovery and container checks passed before publication.' \
+            > "$RUNNER_TEMP/release-notes.md"
+          gh release create "image-$GITHUB_SHA" ./* \
+            --target "$GITHUB_SHA" --title "AccountContext ${GITHUB_SHA:0:7}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+
+  deploy:
+    if: vars.COLORS_PROFILE != ''
+    needs:
+      - public-release
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      packages: read
     environment:
       name: ${{ vars.COLORS_PROFILE }}
     # Serialize rather than cancel: interrupting a deploy midway is worse than making the next one wait.
@@ -167,11 +229,13 @@ jobs:
     steps:
       - name: Deploy via SSH
         env:
-          # Only the key is a secret. The address and user are variables, so the logs stay readable.
+          # SSH key and ephemeral registry token are secrets; host identity remains pinned.
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SERVER_IP: ${{ vars.SERVER_IP }}
           SERVER_USER: ${{ vars.SERVER_USER }}
           SSH_KNOWN_HOSTS: ${{ vars.SSH_KNOWN_HOSTS }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ github.token }}
         run: |
           mkdir -p ~/.ssh
           # shellcheck disable=SC2046
@@ -185,9 +249,10 @@ jobs:
           fi
           printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
 
-          # A ping, not a command. Connect to SERVER_IP: the pinned host key is keyed on the address.
-          # The exit status is the deploy result for every host this key owns.
-          ssh -T -o StrictHostKeyChecking=yes "$SERVER_USER@$SERVER_IP" < /dev/null
+          # No remote command. The fixed wrapper accepts only bounded registry credentials
+          # on stdin and destroys its isolated Docker configuration after the update.
+          python3 -c 'import json, os; print(json.dumps({"username": os.environ["REGISTRY_USER"], "token": os.environ["REGISTRY_TOKEN"]}))' | \
+            ssh -T -o StrictHostKeyChecking=yes "$SERVER_USER@$SERVER_IP"
       - name: Verify public health
         run: |
           # /up executes a database query, so HTTP 200 also checks database availability.
