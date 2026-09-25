@@ -31,7 +31,7 @@ def validate(payload, credential):
         raise ValueError('Invalid backup target')
     if not isinstance(credential, dict) or set(credential) != {'username', 'token'}:
         raise ValueError('Invalid registry authentication')
-    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', credential['username']) or not re.fullmatch(r'[A-Za-z0-9_]{20,2048}', credential['token']):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', credential['username']) or not re.fullmatch(r'[A-Za-z0-9_.-]{20,2048}', credential['token']):
         raise ValueError('Invalid registry authentication')
     return settings
 

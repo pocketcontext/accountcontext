@@ -17,13 +17,13 @@ AccountContext serves port 80 and database-backed `/up`, with persistent state i
 | `ACCOUNTCONTEXT_BACKUP_INTERVAL` | Complete snapshot interval in seconds, default 3600 and maximum 3600 |
 | `LITESTREAM_DISABLED` | Exactly `true` only for isolated development and restore verification |
 
-The planned origin is `https://accounts.pocketcontext.com`; database replicas use `accountcontext-backup` / `once-pocketcontext/accountcontext`, and complete snapshots use the separate `full-backups/` subprefix. Public access must remain disabled. Originals and snapshot archives contain confidential information and must not be placed in Git, CI artifacts or public links.
+The production origin is `https://accounts.pocketcontext.com`; database replicas use `accountcontext-backup` / `once-pocketcontext/accountcontext`, and complete snapshots use the separate `full-backups/` subprefix. Public access must remain disabled. Originals and snapshot archives contain confidential information and must not be placed in Git, CI artifacts or public links.
 
 All app credentials are sourced from the deployment scaffold's ignored `.envrc.private` with `COLORS_PAR_APP_ACCOUNTCONTEXT_*` names. The runtime discards operator passwords and replica credentials before starting the application server. Protect host access and ONCE labels, which contain private configuration.
 
 ## First deployment and updates
 
-Use the existing ONCE host and a separate persistent volume, initially one CPU and 512 MiB. Deploy the tested immutable image with `--auto-update=false`. Limit DNS/scaffold changes to this application. The source repository and tested image archives are public through GitHub Releases. GHCR package visibility is independent and may remain private. CI supplies its short-lived registry token over the dedicated SSH connection; the fixed wrapper uses a private temporary Docker configuration and removes it afterward. See [deployment transport](../deploy/README.md).
+Use the existing ONCE host and a separate persistent volume, initially one CPU and 512 MiB. Deploy the tested immutable image with `--auto-update=false`. Limit DNS/scaffold changes to this application. The source repository and tested image archives are public through GitHub Releases. Anonymous GHCR image access was verified at launch; package visibility remains independently configurable. CI supplies its short-lived registry token over the dedicated SSH connection; the fixed wrapper uses a private temporary Docker configuration and removes it afterward. See [deployment transport](../deploy/README.md).
 
 Use `deploy/install.py` to install the dedicated root-owned `/usr/local/sbin/deploy-accountcontext` wrapper after adding the app-specific restricted SSH key. Its installer preserves sibling keys. The wrapper takes no arguments; its bounded optional stdin accepts registry credentials only. It locks this application, pulls the intended image, gracefully stops the sole existing container and verifies its exit before replacement. Never use rolling updates, broad scaffold convergence, or a second replica writer. Environment updates require the same lock and stop discipline.
 
@@ -31,11 +31,11 @@ The GitHub environment `once-pocketcontext` holds the dedicated deployment key a
 
 ## Complete evidence recovery
 
-Litestream alone backs up the database. The backup supervisor also takes an online SQLite snapshot and copies exactly the immutable original files referenced by that snapshot. It writes checksums, uploads a complete archive, and publishes its latest pointer only after upload succeeds. It takes snapshots at startup, at most hourly, and after a clean shutdown. A backup failure stops the writer instead of silently continuing without complete evidence protection. No snapshots or originals are automatically deleted in this release; monitor storage growth.
+Litestream alone backs up the database. The backup supervisor also takes an online SQLite snapshot and copies exactly the immutable original files referenced by that snapshot. It writes checksums, uploads a complete archive, and publishes its latest pointer only after upload succeeds. It takes snapshots at startup, one hour after each completed upload, and after a clean shutdown. A backup failure stops the writer instead of silently continuing without complete evidence protection. No snapshots or originals are automatically deleted in this release; monitor storage growth.
 
 With a missing local database, startup prefers the latest complete snapshot and verifies its archive, database and original file hashes. This may recover an older consistent state than the newest database-only replica. If no complete snapshot exists, Litestream restore may proceed, but every document referenced by the restored database must have its correct original before startup. Inaccessible or corrupt recovery data fails closed. An existing database is never automatically rolled back; missing/corrupt originals require operator recovery.
 
-The engineering target is at most one hour of recoverable-data loss while complete backups succeed, and recovery within two hours for a small deployment. Validate measured results and current backup timestamps; neither target is a zero-loss guarantee.
+The engineering target is approximately one hour of recoverable-data loss plus upload duration while complete backups succeed, and recovery within two hours for a small deployment. Validate measured results and current backup timestamps; neither target is a zero-loss guarantee.
 
 For a restore drill, download a complete snapshot into an isolated destination, verify its checksum manifest, and start the pinned application with `LITESTREAM_DISABLED=true`, temporary storage and no production outbound settings. Check ordinary-user schema access and protected original bytes/permissions. Never point the restored instance at the live replica for writes. Keep test copies private and remove them after verification.
 

@@ -40,7 +40,7 @@ def read_credentials(stream):
         username, token = value["username"], value["token"]
         if not isinstance(username, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.\[\]-]{0,99}", username):
             raise ValueError()
-        if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_]{16,12000}", token):
+        if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{16,12000}", token):
             raise ValueError()
         return value
     except (ValueError, TypeError, UnicodeError):

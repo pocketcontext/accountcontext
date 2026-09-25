@@ -14,7 +14,7 @@ class BootstrapTests(unittest.TestCase):
         settings.update({'LITESTREAM_' + k: 'synthetic' for k in ('BUCKET', 'PATH', 'REGION', 'ENDPOINT', 'ACCESS_KEY_ID', 'SECRET_ACCESS_KEY')})
         settings.update(LITESTREAM_BUCKET='accountcontext-backup', LITESTREAM_PATH='once-pocketcontext/accountcontext')
         self.payload = {'image': 'ghcr.io/pocketcontext/accountcontext@sha256:' + 'a' * 64, 'settings': settings}
-        self.credential = {'username': 'synthetic', 'token': 'x' * 40}
+        self.credential = {'username': 'synthetic', 'token': 'header.payload-with_dash.signature_' + 'x' * 40}
 
     def test_valid_pinned_target(self):
         self.assertEqual(bootstrap.validate(self.payload, self.credential), self.payload['settings'])

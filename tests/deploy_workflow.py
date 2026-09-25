@@ -114,7 +114,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertIsNone(hook.read_credentials(io.BytesIO(b'')))
 
     def test_registry_stdin_valid_is_bounded(self):
-        value = {'username': 'github-actions[bot]', 'token': 'ghs_' + 'A' * 30}
+        value = {'username': 'github-actions[bot]', 'token': 'header.payload-with_dash.signature_' + 'A' * 30}
         self.assertEqual(hook.read_credentials(io.BytesIO(json.dumps(value).encode())), value)
         with self.assertRaisesRegex(RuntimeError, 'exceeds limit'):
             hook.read_credentials(io.BytesIO(b'A' * (hook.MAX_CREDENTIAL_BYTES + 1)))

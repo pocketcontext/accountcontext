@@ -10,8 +10,9 @@ assets under tag `image-<full-source-commit>`. Each release contains:
 Verify the checksum with `sha256sum --check` in the download directory, then run
 `docker load --input accountcontext-linux-arm64.tar.gz` (or the AMD64 archive).
 The loaded tag is `ghcr.io/pocketcontext/accountcontext:sha-<full-source-commit>`.
-These image downloads are public. GHCR package visibility is independent and may
-remain private; a public source repository does not establish anonymous registry access.
+These image downloads are public. Anonymous GHCR manifest, configuration and ARM64
+layer access were also verified on 25 September 2026. Registry visibility is independent
+of source visibility; the CI transport also supports an authorized private package.
 
 Production retains `ghcr.io/pocketcontext/accountcontext:latest` and the fixed-target
 `deploy-accountcontext.py` wrapper. The wrapper accepts no command-line arguments.
