@@ -62,3 +62,7 @@ Disable ONCE automatic updates. Replace the app only through its dedicated locke
 Infrastructure and client patterns were adapted from RaiseContext and TaskContext; requester filtering follows PeopleContext, using default `users` identities throughout.
 
 Public tested container archives are published in [GitHub Releases](https://github.com/pocketcontext/accountcontext/releases); see [deployment transport](deploy/README.md) for checksums and registry authentication.
+
+## Optional observability
+
+The pinned server supports per-request, requester-owned buffer tracing. Ordinary requests remain untraced. See [the portable skill](skills/accountcontext/SKILL.md#optional-request-tracing) for separate ObserveContext login, command capture, SQL disclosure and retry instructions. Filtered snapshot timings preserve the application’s existing read policies. Validate adoption with `python3 tests/tracing.py --binary /absolute/path/to/pinned/pocketcontext`.
