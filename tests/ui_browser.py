@@ -33,7 +33,7 @@ def run(binary):
         def account(email):
             user=request('POST',path('users'),dict(email=email,name='Reader',password=PASSWORD,passwordConfirm=PASSWORD),op)
             token=request('POST','/api/collections/users/auth-with-password',{'identity':email,'password':PASSWORD})['token'];return user,token
-        user,token=account('reader@example.com');finance,ft=account('finance@example.com')
+        user,token=account('reader@example.com');finance,ft=account('finance@example.com');other,other_token=account('other@example.com')
         request('POST',path('finance_members'),{'account':finance['id'],'can_approve':True},op)
         create=lambda table,body,tok=token:request('POST',path(table),body,tok)
         records=[create('claims',{'owner':user['id'],'title':f'Fixture claim {i:02}','currency':'USD','currency_exponent':2,'amount_minor':100,'status':'draft'}) for i in range(35)]
@@ -46,7 +46,7 @@ def run(binary):
         first=request('PATCH',path('claims')+'/'+first['id'],{'expected_revision':first['revision'],'status':'approved'},ft)
         payment=create('payments',{'currency':'USD','currency_exponent':2,'amount_minor':100,'status':'recorded','direction':'outgoing'},ft)
         allocation=create('claim_reimbursements',{'claim':first['id'],'payment':payment['id'],'claim_minor':100,'payment_minor':100,'status':'recorded'},ft)
-        fixture=dict(email='reader@example.com',password=PASSWORD,table='claims',label='Claims',id=first['id'],title=first['title'],needle=records[-1]['title'],forbiddenTable='payments',forbiddenId=payment['id'],forbiddenText=payment['id'],relationTitle='Readable original evidence',relationTable='documents',relationId=doc['id'],fileTable='documents',fileId=doc['id'],allocationId=allocation['id'])
+        fixture=dict(authCollection='users',otherEmail='other@example.com',privateTable='claims',privateId=first['id'],privateText=first['title'],email='reader@example.com',password=PASSWORD,table='claims',label='Claims',id=first['id'],title=first['title'],needle=records[-1]['title'],forbiddenTable='payments',forbiddenId=payment['id'],forbiddenText=payment['id'],relationTitle='Readable original evidence',relationTable='documents',relationId=doc['id'],fileTable='documents',fileId=doc['id'],allocationId=allocation['id'])
         def action(action):
             if action=='/revoke':request('PATCH',path('users')+'/'+user['id'],{'disabled':True},op)
         browser(request.base_url,fixture,action)
