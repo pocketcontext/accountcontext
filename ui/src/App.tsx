@@ -325,7 +325,14 @@ function Detail({ e, id }: { e: Entity; id: string }) {
 }
 export default function App() {
   const [session, setSession] = useState(sessionEpoch);
-  useEffect(() => pb.authStore.onChange(() => setSession(sessionEpoch())), []);
+  useEffect(
+    () =>
+      pb.authStore.onChange(() => {
+        setSession(sessionEpoch());
+        void refreshSession();
+      }),
+    [],
+  );
   useEffect(() => {
     void refreshSession();
     const focus = () => {
@@ -334,7 +341,7 @@ export default function App() {
     window.addEventListener("focus", focus);
     return () => window.removeEventListener("focus", focus);
   }, []);
-  // Remount every private view, including relationship labels, on auth changes.
+  // Remount private views on identity changes; token renewal preserves the view.
   // The destination remains in the URL and is restored after authentication.
   return <Reader key={session} />;
 }
@@ -365,7 +372,6 @@ function Reader() {
     () =>
       pb.authStore.onChange(() => {
         setAuthenticated(pb.authStore.isValid);
-        setRows([]);
       }),
     [],
   );
