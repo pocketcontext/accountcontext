@@ -5,7 +5,7 @@ description: Operate PocketContext company expenses, subscriptions, evidence, pa
 
 # AccountContext
 
-Use the self-contained Python standard-library client `accountcontext` by its absolute installed path. Configure `ACCOUNTCONTEXT_URL`, `ACCOUNTCONTEXT_USER_EMAIL`, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
+Use the standalone uv launcher `accountcontext` by its absolute installed path. Configure `ACCOUNTCONTEXT_URL`, `ACCOUNTCONTEXT_USER_EMAIL`, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
 
 For first use run `login --google`, `whoami`, then `check`. Google login opens a loopback callback at port 8765; over SSH forward that port from the browser computer. Tokens are cached privately per server and email; `logout` removes only the local token. Disabled users must sign in again after re-enabling.
 
