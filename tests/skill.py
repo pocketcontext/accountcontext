@@ -13,7 +13,7 @@ import tempfile
 import zipfile
 from integration import ROOT, server
 
-parser=argparse.ArgumentParser();parser.add_argument('--binary',required=True);parser.add_argument('--write-schema',action='store_true');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--binary',required=True);parser.add_argument('--client',help='released standalone launcher to exercise');parser.add_argument('--trace',action='store_true');parser.add_argument('--write-schema',action='store_true');args=parser.parse_args()
 with server(args.binary) as request,tempfile.TemporaryDirectory(prefix='accountcontext-skill-') as tmp:
     admin=request('POST','/api/collections/_superusers/auth-with-password',{'identity':'admin@example.com','password':'SyntheticAdminPassword123!'})['token']
     password='SyntheticSkillPassword123!'
@@ -30,10 +30,15 @@ with server(args.binary) as request,tempfile.TemporaryDirectory(prefix='accountc
     assert json.loads((ROOT/'src/accountcontext_client/schema.json').read_text()) == schema
     skill=Path(tmp)/'portable';skill.mkdir();shutil.copy2(ROOT / 'skills/accountcontext/accountcontext', skill / 'accountcontext')
     env={**os.environ,'HOME':tmp,'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'ACCOUNTCONTEXT_URL':request.base_url,'ACCOUNTCONTEXT_USER_EMAIL':'skill@example.com','ACCOUNTCONTEXT_USER_PASSWORD':password}
+    trace_output = Path(tmp) / 'capture.jsonl'
+    if args.trace:
+        env['OBSERVECONTEXT_CAPTURE_V1'] = json.dumps(dict(version=1, url=request.base_url,
+            origin=[], service='accountcontext.client', output=str(trace_output), upload=False,
+            spool=None, flush_timeout=10, capture_sql=False, status_file=None))
     def cli(*argv,expected=0,email=None):
         local=dict(env)
         if email:local['ACCOUNTCONTEXT_USER_EMAIL']=email
-        result=subprocess.run([sys.executable, str(skill / 'accountcontext'),*argv],env=local,cwd=tmp,capture_output=True,text=True)
+        result=subprocess.run(([args.client] if args.client else [sys.executable, str(skill / 'accountcontext')]) + list(argv),env=local,cwd=tmp,capture_output=True,text=True)
         assert password not in result.stdout+result.stderr and token not in result.stdout+result.stderr
         assert result.returncode==expected,(argv,result.stdout,result.stderr)
         return result.stdout
@@ -63,4 +68,9 @@ with server(args.binary) as request,tempfile.TemporaryDirectory(prefix='accountc
         for entry in manifest['files']:assert hashlib.sha256(z.read(entry['path'])).hexdigest()==entry['sha256']
     assert archive.stat().st_mode&0o777==0o600
     cli('logout')
+    if args.trace:
+        events = [json.loads(line) for line in trace_output.read_text().splitlines()]
+        assert any(event['method'] == 'POST' and event['route'] == '/api/collections/documents/records' for event in events)
+        assert all(not event.get('sql') and not event['route'].startswith('/api/files/') for event in events)
+
 print('Portable skill, schema, protected evidence, atomic imports and accountant export passed.')
