@@ -11,8 +11,7 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
-spec=importlib.util.spec_from_file_location('ac',Path(__file__).resolve().parents[1]/'skills/accountcontext/scripts/ac.py')
-ac=importlib.util.module_from_spec(spec);spec.loader.exec_module(ac)
+from accountcontext_client import cli as ac
 
 class ClientTests(unittest.TestCase):
     def test_truncation_fails(self):

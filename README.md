@@ -26,13 +26,16 @@ An operator disables a user rather than deleting their identity. Disabling rotat
 
 ## Portable client
 
-Install with `npx skills add pocketcontext/accountcontext --skill accountcontext`, or copy `skills/accountcontext/` anywhere. It requires Python 3's standard library, `ACCOUNTCONTEXT_URL`, and `ACCOUNTCONTEXT_USER_EMAIL`; optional `ACCOUNTCONTEXT_USER_PASSWORD` supports provisioned password login. Never use operator credentials in the client.
+The standalone launcher `skills/accountcontext/accountcontext` requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Add its directory to `PATH` to use the commands below. Its first run installs the client from a pinned Git revision. For development and validation, install the current package in a virtual environment with `python3 -m pip install .`. Release the tested package commit first, then update the launcher to that full commit and verify the copied launcher through uv. The package pins its ObserveContext instrumentation dependency separately.
+
+
+Install with `npx skills add pocketcontext/accountcontext --skill accountcontext`, or copy `skills/accountcontext/` anywhere. It requires Python 3.11+ and uv, `ACCOUNTCONTEXT_URL`, and `ACCOUNTCONTEXT_USER_EMAIL`; optional `ACCOUNTCONTEXT_USER_PASSWORD` supports provisioned password login. Never use operator credentials in the client.
 
 ```sh
-python3 /absolute/path/accountcontext/scripts/ac.py login --google
-python3 /absolute/path/accountcontext/scripts/ac.py whoami
-python3 /absolute/path/accountcontext/scripts/ac.py check
-python3 /absolute/path/accountcontext/scripts/ac.py report
+accountcontext login --google
+accountcontext whoami
+accountcontext check
+accountcontext report
 ```
 
 Over SSH forward port 8765 from the browser machine. Application tokens are cached privately per server/email; active Google sessions renew. `logout` removes only the local cache. See [skill workflows](skills/accountcontext/references/workflows.md) for manual CSV imports, immutable evidence upload/download and finance-only CSV/originals ZIP export. Export does not deliver files to an accountant.
@@ -42,6 +45,7 @@ Over SSH forward port 8765 from the browser machine. Application tokens are cach
 All fixtures are synthetic and use isolated temporary databases:
 
 ```sh
+python3 tests/launcher.py
 python3 tests/integration.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/auth.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/oauth_integration.py --binary /absolute/path/to/pinned/pocketcontext

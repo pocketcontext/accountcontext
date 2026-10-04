@@ -5,7 +5,7 @@ description: Operate PocketContext company expenses, subscriptions, evidence, pa
 
 # AccountContext
 
-Use the self-contained Python standard-library client `scripts/ac.py` by its absolute installed path. Configure `ACCOUNTCONTEXT_URL`, `ACCOUNTCONTEXT_USER_EMAIL`, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
+Use the self-contained Python standard-library client `accountcontext` by its absolute installed path. Configure `ACCOUNTCONTEXT_URL`, `ACCOUNTCONTEXT_USER_EMAIL`, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
 
 For first use run `login --google`, `whoami`, then `check`. Google login opens a loopback callback at port 8765; over SSH forward that port from the browser computer. Tokens are cached privately per server and email; `logout` removes only the local token. Disabled users must sign in again after re-enabling.
 
@@ -20,20 +20,22 @@ Read [schema](references/schema.md) and [workflows](references/workflows.md) bef
 
 This app is an expense register, not a general ledger, tax filing service, payroll system or payment processor. No hard-delete command is supplied; use the documented void/correction workflow.
 
+The executable `accountcontext` beside this file is a standalone uv launcher. Install uv and Python 3.11+, then resolve this launcher to an absolute path or add its directory to PATH. The first invocation downloads the pinned package and dependencies. Use the full command name in all examples.
+
 ## Optional request tracing
 
-Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then set `OBSERVECONTEXT_URL=https://observe.pocketcontext.com` and `OBSERVECONTEXT_USER_EMAIL` to your Workspace email and run `python3 /path/to/observecontext/scripts/oc.py login --google` separately. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
+Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then set `OBSERVECONTEXT_URL=https://observe.pocketcontext.com` and `OBSERVECONTEXT_USER_EMAIL` to your Workspace email and run `observecontext login --google` separately. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
 
 ```sh
-python3 /path/to/observecontext/scripts/oc.py capture \
+observecontext capture \
   --url "${ACCOUNTCONTEXT_URL}" --service accountcontext.client --upload \
-  /path/to/accountcontext/scripts/ac.py \
+  -- accountcontext \
   query 'SELECT id FROM claims LIMIT 5'
 ```
 
 Add `--capture-sql` only when you intend to retain submitted SQL, including potentially private literals. Without it, capture retains timings but no SQL text. The client can record its submitted SQL independently of server SQL-capture settings. Traces exclude result rows, credentials, request bodies and response bodies. The operation is private to its ObserveContext owner except for an operator-managed view-all role. Capture does not grant anyone additional application data access.
 
-The server keeps requested traces in a bounded 16 MiB memory buffer with short expiry; only the requesting authenticated account can retrieve them. The wrapper retrieves server traces and uploads client/server timings together. Failed delivery stays in an account-bound local queue; use `oc.py flush` with the same ObserveContext identity to retry and `oc.py dashboard` for the personal loopback dashboard. No collector service is needed. Capture adds retrieval/upload latency and covers in-process Python urllib SQL/REST requests, not whole agent sessions, prompts, file downloads or realtime streams. Existing immutable traces cannot acquire SQL text retroactively.
+The server keeps requested traces in a bounded 16 MiB memory buffer with short expiry; only the requesting authenticated account can retrieve them. The wrapper retrieves server traces and uploads client/server timings together. Failed delivery stays in an account-bound local queue; use `observecontext flush` with the same ObserveContext identity to retry and `observecontext dashboard` for the personal loopback dashboard. No collector service is needed. Capture adds retrieval/upload latency and covers in-process Python urllib SQL/REST requests, not whole agent sessions, prompts, file downloads or realtime streams. Existing immutable traces cannot acquire SQL text retroactively.
 
 ## Browser record links
 

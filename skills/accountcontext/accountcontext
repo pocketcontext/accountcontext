@@ -1,0 +1,13 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["accountcontext-client"]
+#
+# [tool.uv.sources]
+# accountcontext-client = { git = "https://github.com/pocketcontext/accountcontext.git", rev = "b9b81840597c4299263a27bd79f8bde2dbf2e270" }
+# ///
+"""Standalone launcher for the pinned accountcontext client."""
+from accountcontext_client.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())
