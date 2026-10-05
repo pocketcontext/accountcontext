@@ -27,6 +27,8 @@ jobs:
         run: python3 accountcontext/tests/backup.py
       - name: Test initial deployment orchestration
         run: python3 accountcontext/tests/bootstrap.py
+      - name: Frozen container startup
+        run: python3 accountcontext/tests/maintenance_entrypoint.py
       - name: Read server revision
         id: server
         shell: bash
@@ -83,3 +85,5 @@ jobs:
         run: python3 accountcontext/tests/tracing.py --binary pocketcontext/bin/pocketcontext
       - name: Test reader privacy and navigation in Chromium
         run: python3 accountcontext/tests/ui_browser.py --binary pocketcontext/bin/pocketcontext
+      - name: Durable runtime maintenance
+        run: python3 accountcontext/tests/maintenance.py --binary pocketcontext/bin/pocketcontext
