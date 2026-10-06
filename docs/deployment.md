@@ -42,3 +42,5 @@ For a restore drill, download a complete snapshot into an isolated destination, 
 For production rollback, stop the only writer first. Use a previous image only if its schema is compatible. Otherwise restore a deliberate complete snapshot while production writers remain stopped; verify every original, source/server compatibility and the selected replica strategy before bringing one writer back. Do not silently repair an inconsistent volume by discarding newer financial records.
 
 Synthetic OAuth tests and provider configuration checks do not establish a real human Google login. The unattended deployment handoff explicitly reports that check as unverified.
+
+Set repository variable `CONTEXT_DEPLOY_PAUSED=true` to stop the GitHub deployment job while retaining `COLORS_PROFILE` and allowing image validation/publication. Set it to `false` only when deployment is intended again. This gate affects newly evaluated workflow jobs; pause or cancel already-running deployments separately before a migration.

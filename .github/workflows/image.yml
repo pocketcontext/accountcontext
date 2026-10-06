@@ -227,7 +227,7 @@ jobs:
             --notes-file "$RUNNER_TEMP/release-notes.md"
 
   deploy:
-    if: vars.COLORS_PROFILE != ''
+    if: vars.CONTEXT_DEPLOY_PAUSED != 'true' && vars.COLORS_PROFILE != ''
     needs:
       - public-release
     runs-on: ubuntu-24.04

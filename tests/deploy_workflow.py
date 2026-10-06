@@ -25,6 +25,14 @@ installer = load("installer", "install.py")
 
 
 class DeploymentTests(unittest.TestCase):
+    def test_repository_pause_gate_blocks_cd_without_changing_profile(self):
+        workflow = (ROOT / '.github/workflows/image.yml').read_text()
+        deployment = workflow.split('  deploy:', 1)[1]
+        self.assertEqual(deployment.splitlines()[1].strip(),
+                         "if: vars.CONTEXT_DEPLOY_PAUSED != 'true' && vars.COLORS_PROFILE != ''")
+        # Image checks and publication remain available while CD is paused.
+        self.assertNotIn('CONTEXT_DEPLOY_PAUSED', workflow.split('  deploy:', 1)[0])
+
     def run_hook(self, fail=None, killed=False, count=1, recovery_count=None, image=None):
         calls = []
         inspections = 0
