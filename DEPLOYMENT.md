@@ -1,3 +1,14 @@
+# Historical deployment evidence
+
+The old AccountContext deployment was retired on 6 October 2026. This document retains
+historical release evidence, not current deployment or recovery instructions.
+The old host wrapper, installer, deployment credentials and backup bucket are
+retired. Do not follow the legacy installation, snapshot or rollback procedures
+below against a current instance. Current guidance is in [runtime deployment and
+recovery](docs/deployment.md) and the [common CI/deployment contract](docs/ci-and-deployment.md).
+The current image requires primary S3 plus Litestream; `docker/backup.py` remains
+an offline legacy archive compatibility utility outside that image.
+
 ## Packaged CLI and opt-in tracing — 4 October 2026
 
 Deployed source `b0b5fb9a6681bf28a758d5cf0735c22c0addc5c9` at `https://accounts.pocketcontext.com`.

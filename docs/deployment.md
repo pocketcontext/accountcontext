@@ -1,46 +1,60 @@
 # Deployment and recovery
 
-AccountContext serves port 80 and database-backed `/up`, with persistent state in `/storage/pb_data`. Build the server revision in `POCKETCONTEXT_VERSION`; publish only after application, identity/policy, portable client and container configuration/smoke/restore checks pass. Record the deployed source revision and immutable image digest in `DEPLOYMENT.md`.
+The old AccountContext deployment is retired. This source change does not recreate it.
+See [CI and deployment lifecycle](ci-and-deployment.md) for common release controls.
+Historical deployment records are not current provisioning instructions.
 
-## Configuration
+## Runtime configuration
 
-| Variables | Use |
-| --- | --- |
-| `ACCOUNTCONTEXT_SUPERUSER_EMAIL`, `ACCOUNTCONTEXT_SUPERUSER_PASSWORD` | Dedicated maintenance identity, supplied together; never ordinary agent credentials |
-| `ACCOUNTCONTEXT_GOOGLE_CLIENT_ID`, `ACCOUNTCONTEXT_GOOGLE_CLIENT_SECRET` | Separate Google Web client, supplied together; absence preserves stored settings |
-| `ACCOUNTCONTEXT_GOOGLE_WORKSPACE_DOMAIN` | Exact trusted Workspace domain enabling validated JIT |
-| `ACCOUNTCONTEXT_TRUSTED_PROXY_HEADER` | `X-Forwarded-For` behind the existing ONCE proxy |
-| `BASE_URL` | Public HTTPS origin, supplied by ONCE |
-| `LITESTREAM_BUCKET`, `LITESTREAM_PATH` | Dedicated private bucket and replica prefix |
-| `LITESTREAM_ENDPOINT`, `LITESTREAM_REGION` | Verified S3 endpoint and `auto` for R2 |
-| `LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY` | Bucket-scoped object access; also used for complete snapshots |
-| `ACCOUNTCONTEXT_BACKUP_INTERVAL` | Complete snapshot interval in seconds, default 3600 and maximum 3600 |
-| `LITESTREAM_DISABLED` | Exactly `true` only for isolated development and restore verification |
+The image serves port 80 with database-backed `/up`, uses tini and a single Python
+entrypoint, and stores SQLite state in `/storage/pb_data`. It requires all five
+`ACCOUNTCONTEXT_S3_` settings: `BUCKET`, `ENDPOINT`, `REGION`, `ACCESS_KEY_ID`,
+`SECRET_ACCESS_KEY`. `FORCE_PATH_STYLE` is `true` by default. Litestream separately
+requires `LITESTREAM_BUCKET`, `LITESTREAM_PATH`, `LITESTREAM_ACCESS_KEY_ID` and
+`LITESTREAM_SECRET_ACCESS_KEY`; configure endpoint and region for the provider.
+Primary files and replicas must use different buckets and access keys. Private
+objects must remain available for as long as retained database replicas reference them.
+`LITESTREAM_DISABLED` is unsupported. No archive supervisor runs in this image.
 
-The production origin is `https://accounts.pocketcontext.com`; database replicas use `accountcontext-backup` / `once-pocketcontext/accountcontext`, and complete snapshots use the separate `full-backups/` subprefix. Public access must remain disabled. Originals and snapshot archives contain confidential information and must not be placed in Git, CI artifacts or public links.
+Supply paired `ACCOUNTCONTEXT_GOOGLE_CLIENT_ID` / `ACCOUNTCONTEXT_GOOGLE_CLIENT_SECRET`
+and the exact `ACCOUNTCONTEXT_GOOGLE_WORKSPACE_DOMAIN` for verified Workspace JIT.
+Optional paired `ACCOUNTCONTEXT_SUPERUSER_EMAIL` / `ACCOUNTCONTEXT_SUPERUSER_PASSWORD`
+are maintenance credentials, never ordinary client credentials. Set `BASE_URL`
+and the ordinary SMTP environment for authentication email. Keep secrets outside
+Git and logs. Replica credentials and operator passwords are removed from the
+server process environment. App authorization remains unchanged.
 
-All app credentials are sourced from the deployment scaffold's ignored `.envrc.private` with `COLORS_PAR_APP_ACCOUNTCONTEXT_*` names. The runtime discards operator passwords and replica credentials before starting the application server. Protect host access and ONCE labels, which contain private configuration.
+## Initialization and recovery
 
-## First deployment and updates
+Run the image's `init` command once with an empty volume and empty replica. It
+refuses an existing replica and records incomplete initialization durably. Then
+start the default command using the same volume and configuration. Ordinary startup
+requires a local database or a recoverable replica, never silently initializes.
 
-Use the existing ONCE host and a separate persistent volume, initially one CPU and 512 MiB. Deploy the tested immutable image with `--auto-update=false`. Limit DNS/scaffold changes to this application. The source repository and tested image archives are public through GitHub Releases. Anonymous GHCR image access was verified at launch; package visibility remains independently configurable. CI supplies its short-lived registry token over the dedicated SSH connection; the fixed wrapper uses a private temporary Docker configuration and removes it afterward. See [deployment transport](../deploy/README.md).
+A restored database is staged outside the active directory. SQLite integrity,
+all file-field references (including auth avatars), and original SHA-256 checks
+must pass before atomic installation. Missing/corrupt objects fail closed and leave
+no installed database. Existing databases also verify files before serving.
+Litestream synchronizes through private IPC before HTTP is accepted. Graceful
+shutdown stops the single writer and synchronizes its replica. Asynchronous
+replication does not guarantee zero data loss on crashes.
 
-Use `deploy/install.py` to install the dedicated root-owned `/usr/local/sbin/deploy-accountcontext` wrapper after adding the app-specific restricted SSH key. Its installer preserves sibling keys. The wrapper takes no arguments; its bounded optional stdin accepts registry credentials only. It locks this application, pulls the intended image, gracefully stops the sole existing container and verifies its exit before replacement. Never use rolling updates, broad scaffold convergence, or a second replica writer. Environment updates require the same lock and stop discipline.
+Frozen handoffs require the private `maintenance.json` marker, main database and
+consistent `auxiliary.db`; startup refuses storage changes or missing auxiliary
+state, skips provisioning, and leaves explicit thaw to the operator. Fence the old
+writer before starting a replacement. Never test against production replicas.
 
-The GitHub environment `once-pocketcontext` holds the dedicated deployment key and pinned host identity. Enable repository variable `COLORS_PROFILE=once-pocketcontext` only after first deployment and wrapper verification. Application users and `finance_members` are provisioned through operator REST maintenance or verified JIT, never by seeding real identities in schema migrations. JIT never grants finance or approval authority.
+`docker/backup.py` and its tests remain for offline legacy archive compatibility;
+they are excluded from the image. New runtime recovery uses primary objects plus
+the Litestream replica exclusively. Local server development may still use local
+files; it is not the container storage contract.
 
-## Complete evidence recovery
+## Validation
 
-Litestream alone backs up the database. The backup supervisor also takes an online SQLite snapshot and copies exactly the immutable original files referenced by that snapshot. It writes checksums, uploads a complete archive, and publishes its latest pointer only after upload succeeds. It takes snapshots at startup, one hour after each completed upload, and after a clean shutdown. A backup failure stops the writer instead of silently continuing without complete evidence protection. No snapshots or originals are automatically deleted in this release; monitor storage growth.
-
-With a missing local database, startup prefers the latest complete snapshot and verifies its archive, database and original file hashes. This may recover an older consistent state than the newest database-only replica. If no complete snapshot exists, Litestream restore may proceed, but every document referenced by the restored database must have its correct original before startup. Inaccessible or corrupt recovery data fails closed. An existing database is never automatically rolled back; missing/corrupt originals require operator recovery.
-
-The engineering target is approximately one hour of recoverable-data loss plus upload duration while complete backups succeed, and recovery within two hours for a small deployment. Validate measured results and current backup timestamps; neither target is a zero-loss guarantee.
-
-For a restore drill, download a complete snapshot into an isolated destination, verify its checksum manifest, and start the pinned application with `LITESTREAM_DISABLED=true`, temporary storage and no production outbound settings. Check ordinary-user schema access and protected original bytes/permissions. Never point the restored instance at the live replica for writes. Keep test copies private and remove them after verification.
-
-For production rollback, stop the only writer first. Use a previous image only if its schema is compatible. Otherwise restore a deliberate complete snapshot while production writers remain stopped; verify every original, source/server compatibility and the selected replica strategy before bringing one writer back. Do not silently repair an inconsistent volume by discarding newer financial records.
-
-Synthetic OAuth tests and provider configuration checks do not establish a real human Google login. The unattended deployment handoff explicitly reports that check as unverified.
-
-Set repository variable `CONTEXT_DEPLOY_PAUSED=true` to stop the GitHub deployment job while retaining `COLORS_PROFILE` and allowing image validation/publication. Set it to `false` only when deployment is intended again. This gate affects newly evaluated workflow jobs; pause or cancel already-running deployments separately before a migration.
+Run the README application/auth/client/maintenance suites and `tests/entrypoint.py`.
+Build the image and run `docker/smoke.py config`, `smoke`, and `restore` with
+`--image IMAGE`. The populated restore gate provisions isolated MinIO buckets and
+scoped synthetic credentials, checks protected downloads, freezes/restarts,
+compares all database tables, destroys source volumes and tests automatic recovery.
+It also rejects absent replicas and reinitialization of an existing replica.
+No live data, cloud resources or deployment access is needed for these gates.

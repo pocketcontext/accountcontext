@@ -1,33 +1,28 @@
-# Deployment transport
+# Deployment lifecycle
 
-The image workflow publishes tested AMD64 and ARM64 images as public GitHub Release
-assets under tag `image-<full-source-commit>`. Each release contains:
+The old AccountContext deployment is retired. `install.py` and the app-local deployment
+wrapper fail closed and perform no installation or deployment. AccountContext's
+old bootstrap command is retired too. Do not reinstall these commands or recreate
+the old host credentials.
 
-- `accountcontext-linux-amd64.tar.gz` and its `.sha256` checksum file.
-- `accountcontext-linux-arm64.tar.gz` and its `.sha256` checksum file.
-- One `.txt` file per architecture recording source revision and registry digest.
+The maintained [common CI and deployment contract](../docs/ci-and-deployment.md)
+is authoritative. Deployment remains explicitly disabled in this repository.
+A separately authorized fresh deployment uses the `once-pocketcontext-v2` shared
+dispatcher with an app-specific forced-command SSH key. The commandless connection
+sends no registry credentials. The dispatcher resolves an immutable image, stops
+the existing writer cleanly under its locks, preserves its volume, and verifies
+the replacement. It does not automatically roll back.
 
-Verify the checksum with `sha256sum --check` in the download directory, then run
-`docker load --input accountcontext-linux-arm64.tar.gz` (or the AMD64 archive).
-The loaded tag is `ghcr.io/pocketcontext/accountcontext:sha-<full-source-commit>`.
-These image downloads are public. Anonymous GHCR manifest, configuration and ARM64
-layer access were also verified on 25 September 2026. Registry visibility is independent
-of source visibility; the CI transport also supports an authorized private package.
+See [runtime configuration and recovery](../docs/deployment.md) for required
+primary-object storage, separate Litestream credentials and explicit fresh-volume
+initialization. `docker/backup.py` is an offline legacy archive utility, excluded
+from the current image; it is not part of the deployment or recovery entrypoint.
 
-Production retains `ghcr.io/pocketcontext/accountcontext:latest` and the fixed-target
-`deploy-accountcontext.py` wrapper. The wrapper accepts no command-line arguments.
-Its optional standard input is one JSON object containing exactly `username` and
-`token`, bounded to 16 KiB. Empty input requests an anonymous pull. GitHub Actions
-supplies its job-scoped token through SSH standard input with `packages: read`.
+## Published image archives
 
-The root-owned wrapper authenticates only to `ghcr.io`, using `docker login
---password-stdin`. Login output is captured and never emitted. Credentials reside
-in a temporary Docker configuration with mode 0700; cleanup runs after success or
-failure. Existing Docker credentials and sibling app configuration stay untouched.
-ONCE v0.3.3 uses that temporary Docker keychain when pulling the fixed app image.
-No token is persisted in ONCE settings or passed as a command-line argument.
+The image workflow publishes tested AMD64 and ARM64 archives in GitHub Releases
+under `image-<full-source-commit>`, with `.sha256` checksums and per-architecture
+source/digest metadata. Verify the checksum before loading an archive with Docker.
+Loading an image is not deployment and does not enable the retired workflow job.
 
-The wrapper still acquires the AccountContext deployment lock, validates the sole
-matching container and image, pulls before stopping, requires a graceful stop, and
-updates only `accounts.pocketcontext.com` with automatic updates disabled. CI waits
-for application/container tests and public release publication before deployment.
+Run `python3 tests/deploy_workflow.py` for isolated deployment-contract checks.

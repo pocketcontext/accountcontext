@@ -71,8 +71,7 @@ RUN apt-get update \
 
 COPY --from=build /out/pocketcontext /out/litestream /usr/local/bin/
 COPY docker/litestream.yml /etc/litestream.yml
-COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY docker/backup.py /usr/local/bin/accountcontext-backup.py
+COPY --chmod=0755 docker/entrypoint.py /usr/local/bin/accountcontext-entrypoint.py
 WORKDIR /app
 COPY POCKETCONTEXT_VERSION pocketcontext.json ./
 COPY pb_migrations/ ./pb_migrations/
@@ -84,7 +83,7 @@ COPY --from=reader /ui/dist/ ./ui/dist/
 ENV ACCOUNTCONTEXT_RATE_LIMITS=true
 VOLUME /storage
 EXPOSE 80
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/accountcontext-entrypoint.py"]
 
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="AccountContext" \
