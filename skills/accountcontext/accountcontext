@@ -4,7 +4,7 @@
 # dependencies = ["accountcontext-client"]
 #
 # [tool.uv.sources]
-# accountcontext-client = { git = "https://github.com/pocketcontext/accountcontext.git", rev = "12be8dc424898b582740c244f028f12b4ca67c27" }
+# accountcontext-client = { git = "https://github.com/pocketcontext/accountcontext.git", rev = "2e583a6ed52a4ed6d5169f0ab37458a7ec67452d" }
 # ///
 """Standalone launcher for the pinned accountcontext client."""
 from accountcontext_client.cli import main
