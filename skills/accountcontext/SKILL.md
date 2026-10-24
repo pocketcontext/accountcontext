@@ -7,7 +7,7 @@ description: Operate PocketContext company expenses, subscriptions, evidence, pa
 
 Use the standalone uv launcher `accountcontext` by its absolute installed path. Configure `ACCOUNTCONTEXT_URL`, `ACCOUNTCONTEXT_USER_EMAIL`, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
 
-For first use run `login --google`, `whoami`, then `check`. Google login opens a loopback callback at port 8765; over SSH forward that port from the browser computer. Tokens are cached privately per server and email; `logout` removes only the local token. Disabled users must sign in again after re-enabling.
+For first use run `login --google`, `whoami`, then `check`. Google login opens a loopback callback at port 8765; over SSH forward that port from the browser computer. The session token is saved privately per server and email in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or in `ACCOUNTCONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/accountcontext/` by an older client is moved there on first use. `logout` removes only the local session, from both locations. Disabled users must sign in again after re-enabling.
 
 Read [schema](references/schema.md) and [workflows](references/workflows.md) before financial writes. [Examples](references/examples.md) covers CLI syntax, CSV imports and exports. The generated [schema snapshot](references/schema.json) describes SQL exposure; `schema` returns the live contract.
 

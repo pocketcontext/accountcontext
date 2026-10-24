@@ -38,7 +38,7 @@ accountcontext check
 accountcontext report
 ```
 
-Over SSH forward port 8765 from the browser machine. Application tokens are cached privately per server/email; active Google sessions renew. `logout` removes only the local cache. See [skill workflows](skills/accountcontext/references/workflows.md) for manual CSV imports, immutable evidence upload/download and finance-only CSV/originals ZIP export. Export does not deliver files to an accountant.
+Over SSH forward port 8765 from the browser machine. Application sessions are saved privately per server/email in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or in `ACCOUNTCONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/accountcontext/` by an older client is moved there on first use. Active Google sessions renew. `logout` removes only the local session files, new and old. See [skill workflows](skills/accountcontext/references/workflows.md) for manual CSV imports, immutable evidence upload/download and finance-only CSV/originals ZIP export. Export does not deliver files to an accountant.
 
 ## Validation
 

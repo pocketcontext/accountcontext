@@ -29,7 +29,8 @@ with server(args.binary) as request,tempfile.TemporaryDirectory(prefix='accountc
     assert json.loads(snapshot.read_text())==schema,'Schema changed; review and regenerate snapshot'
     assert json.loads((ROOT/'src/accountcontext_client/schema.json').read_text()) == schema
     skill=Path(tmp)/'portable';skill.mkdir();shutil.copy2(ROOT / 'skills/accountcontext/accountcontext', skill / 'accountcontext')
-    env={**os.environ,'HOME':tmp,'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'ACCOUNTCONTEXT_URL':request.base_url,'ACCOUNTCONTEXT_USER_EMAIL':'skill@example.com','ACCOUNTCONTEXT_USER_PASSWORD':password}
+    env={**os.environ,'HOME':tmp,'XDG_CACHE_HOME':str(Path(tmp)/'cache'),'XDG_STATE_HOME':str(Path(tmp)/'state'),'ACCOUNTCONTEXT_URL':request.base_url,'ACCOUNTCONTEXT_USER_EMAIL':'skill@example.com','ACCOUNTCONTEXT_USER_PASSWORD':password}
+    env.pop('ACCOUNTCONTEXT_SESSION_DIR',None)
     trace_output = Path(tmp) / 'capture.jsonl'
     if args.trace:
         env['OBSERVECONTEXT_CAPTURE_V1'] = json.dumps(dict(version=1, url=request.base_url,
