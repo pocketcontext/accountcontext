@@ -62,7 +62,7 @@ python3 tests/backup_integration.py --binary /absolute/path/to/pinned/pocketcont
 
 Container release gates additionally run `docker/smoke.py config`, `smoke`, and `restore` against the built image. Database-and-document recovery must verify original SHA-256 bytes and permissions. Primary S3 objects and the Litestream database replica together form the recovery set; neither is sufficient alone.
 
-The old deployment is retired. Any separately authorized fresh deployment follows the [common deployment contract](docs/ci-and-deployment.md), with ONCE automatic updates disabled, separate primary-file and database-replica buckets, and one writer. App-local installers and wrappers fail closed; never restore a second writer against an active replica.
+The old deployment is retired. Any separately authorized fresh deployment follows the [common deployment contract](docs/ci-and-deployment.md), with ONCE automatic updates disabled, separate primary-file and database-replica buckets, and one writer. The old-host installer and wrappers are removed; never restore a second writer against an active replica.
 
 Infrastructure and client patterns were adapted from RaiseContext and TaskContext; requester filtering follows PeopleContext, using default `users` identities throughout.
 
