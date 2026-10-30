@@ -18,7 +18,7 @@ Application migrations/configuration/hooks resolve from this directory. Keep `pb
 
 ## Access
 
-PocketBase's existing default `users` identity serves humans and their agents. Verified Google Workspace JIT is restricted to the configured domain; direct signup is blocked. New users can submit/read their own claims and documents. Explicit finance membership grants company-wide finance access; approval is independently controlled. Source-only roles are never exported through SQL. Permissions apply separately to SQL, REST, files, exports and history. Operator provisioning is separate from ordinary activity.
+PocketBase's existing default `users` identity serves humans and their agents. Verified Google Workspace JIT is restricted to the configured domain; direct signup is blocked. New users can submit/read their own claims and documents. Explicit finance membership grants company-wide finance access; approval is independently controlled. Source-only roles are never exported through SQL. The pinned server reuses each account's private SQL snapshot until any committed source-database write, including claims, uploads and `finance_members` changes, so a read after a confirmed write observes it with current authorization. At most four copies are retained in private server temporary files; background snapshots, `trackChanges` and per-account admission (`maxConcurrentPerRequester`) are not configured. Permissions apply separately to SQL, REST, files, exports and history. Operator provisioning is separate from ordinary activity.
 
 Configure `ACCOUNTCONTEXT_GOOGLE_CLIENT_ID` and `ACCOUNTCONTEXT_GOOGLE_CLIENT_SECRET` together, using a separate Internal Google Web client with `http://127.0.0.1:8765/callback` and `https://accounts.pocketcontext.com/api/oauth2-redirect`. Set `ACCOUNTCONTEXT_GOOGLE_WORKSPACE_DOMAIN=pocketcontext.com`. Server-side claims validation enforces the exact domain and verified email. Real human Google browser login is explicitly outside automated acceptance and must be reported as unverified until exercised.
 
@@ -49,6 +49,7 @@ python3 tests/launcher.py
 python3 tests/integration.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/auth.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/oauth_integration.py --binary /absolute/path/to/pinned/pocketcontext
+python3 tests/snapshot_freshness.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/skill.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/skill.py --binary /absolute/path/to/pinned/pocketcontext --trace
 python3 tests/deploy.py --binary /absolute/path/to/pinned/pocketcontext
@@ -59,6 +60,8 @@ python3 tests/bootstrap.py
 python3 tests/backup.py
 python3 tests/backup_integration.py --binary /absolute/path/to/pinned/pocketcontext
 ```
+
+`tests/snapshot_freshness.py` checks reused SQL snapshots: claims, documents and finance grants, approval changes and revocations are visible on the next read for the affected account, without stale or cross-account rows.
 
 Container release gates additionally run `docker/smoke.py config`, `smoke`, and `restore` against the built image. Database-and-document recovery must verify original SHA-256 bytes and permissions. Primary S3 objects and the Litestream database replica together form the recovery set; neither is sufficient alone.
 
