@@ -43,7 +43,12 @@ with server(args.binary) as request,tempfile.TemporaryDirectory(prefix='accountc
         assert password not in result.stdout+result.stderr and token not in result.stdout+result.stderr
         assert result.returncode==expected,(argv,result.stdout,result.stderr)
         return result.stdout
+    env.pop('ACCOUNTCONTEXT_URL')
+    env.pop('ACCOUNTCONTEXT_USER_EMAIL')
+    cli('login', '--password', '--url', request.base_url, '--email', 'skill@example.com')
+    env.pop('ACCOUNTCONTEXT_USER_PASSWORD')
     cli('whoami');cli('check')
+    env['ACCOUNTCONTEXT_USER_PASSWORD'] = password
     party=json.loads(cli('create','parties','{"name":"Synthetic vendor"}'))
     assert json.loads(cli('get','parties',party['id']))['name']=='Synthetic vendor'
     body=json.dumps({'name':'Updated synthetic vendor','expected_revision':party['revision']})
