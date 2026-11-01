@@ -1,9 +1,9 @@
 # CLI examples
 
-Set `ACCOUNTCONTEXT_URL=https://accounts.pocketcontext.com` and `ACCOUNTCONTEXT_USER_EMAIL` to your Workspace email. Substitute the installed absolute client path and actual record IDs below.
+Use `--url` and `--email` on first login; subsequent commands use saved defaults. Substitute the installed absolute client path and actual record IDs below.
 
 ```sh
-accountcontext login --google
+accountcontext login --google --url https://accounts.pocketcontext.com --email you@pocketcontext.com
 accountcontext whoami
 accountcontext check
 accountcontext query 'SELECT id,name FROM parties ORDER BY name'

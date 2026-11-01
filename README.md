@@ -29,16 +29,16 @@ An operator disables a user rather than deleting their identity. Disabling rotat
 The standalone launcher `skills/accountcontext/accountcontext` requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Add its directory to `PATH` to use the commands below. Its first run installs the client from a pinned Git revision. For development and validation, install the current package in a virtual environment with `python3 -m pip install .`. Release the tested package commit first, then update the launcher to that full commit and verify the copied launcher through uv. The package pins its ObserveContext instrumentation dependency separately.
 
 
-Install with `npx skills add pocketcontext/accountcontext --skill accountcontext`, or copy `skills/accountcontext/` anywhere. It requires Python 3.11+ and uv, `ACCOUNTCONTEXT_URL`, and `ACCOUNTCONTEXT_USER_EMAIL`; optional `ACCOUNTCONTEXT_USER_PASSWORD` supports provisioned password login. Never use operator credentials in the client.
+Install with `npx skills add pocketcontext/accountcontext --skill accountcontext`, or copy `skills/accountcontext/` anywhere. It requires Python 3.11+ and uv; provide `--url` and `--email` on first login; optional `ACCOUNTCONTEXT_USER_PASSWORD` supports provisioned password login. Never use operator credentials in the client.
 
 ```sh
-accountcontext login --google
+accountcontext login --google --url https://your-server.example --email you@example.com
 accountcontext whoami
 accountcontext check
 accountcontext report
 ```
 
-Over SSH forward port 8765 from the browser machine. Application sessions are saved privately per server/email in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or in `ACCOUNTCONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/accountcontext/` by an older client is moved there on first use. Active Google sessions renew. `logout` removes only the local session files, new and old. See [skill workflows](skills/accountcontext/references/workflows.md) for manual CSV imports, immutable evidence upload/download and finance-only CSV/originals ZIP export. Export does not deliver files to an accountant.
+Over SSH forward port 8765 from the browser machine. Application sessions are saved privately per server/email in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or in `ACCOUNTCONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out. Active Google sessions renew. `logout` removes the selected local token and retains default settings. See [skill workflows](skills/accountcontext/references/workflows.md) for manual CSV imports, immutable evidence upload/download and finance-only CSV/originals ZIP export. Export does not deliver files to an accountant.
 
 ## Validation
 
@@ -53,6 +53,7 @@ python3 tests/snapshot_freshness.py --binary /absolute/path/to/pinned/pocketcont
 python3 tests/skill.py --binary /absolute/path/to/pinned/pocketcontext
 python3 tests/skill.py --binary /absolute/path/to/pinned/pocketcontext --trace
 python3 tests/deploy.py --binary /absolute/path/to/pinned/pocketcontext
+python3 tests/configuration.py
 python3 tests/oauth.py
 python3 tests/client.py
 python3 tests/deploy_workflow.py
@@ -154,3 +155,11 @@ to create a missing auxiliary database. The main `data.db` still comes from
 Litestream. A writable disaster recovery can recreate auxiliary state, but must
 not be substituted for a deliberately frozen migration. Keep source fencing and
 this bundle explicit in migration tooling.
+
+## Saved CLI login settings
+
+Sign in once with `accountcontext login --google --url https://your-server.example --email you@example.com`, or use `--password` with `ACCOUNTCONTEXT_USER_PASSWORD` for a provisioned password account. The password is supplied through the environment, never as a CLI argument.
+
+URL and email resolve from CLI options, then `ACCOUNTCONTEXT_URL` / `ACCOUNTCONTEXT_USER_EMAIL`, then saved defaults. `--url` and `--email` work before or after the command. Later commands need no URL/email exports. Successful explicit login writes `default.json` containing only URL and email alongside the per-account token file in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or `ACCOUNTCONTEXT_SESSION_DIR`. Files use mode 0600 and the directory 0700. Ordinary commands and token refresh never change the default account. Tokens are selected only for the exact resolved server/email pair.
+
+`accountcontext logout` removes the selected token and retains settings for the next login. `accountcontext logout --forget` also removes the default when it matches that account; other accounts remain untouched. Old cache sessions are not migrated: sign in again. A malformed or unsafe default file must be fixed or removed before continuing.

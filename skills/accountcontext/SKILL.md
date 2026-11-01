@@ -5,9 +5,9 @@ description: Operate PocketContext company expenses, subscriptions, evidence, pa
 
 # AccountContext
 
-Use the standalone uv launcher `accountcontext` by its absolute installed path. Configure `ACCOUNTCONTEXT_URL`, `ACCOUNTCONTEXT_USER_EMAIL`, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
+Use the standalone uv launcher `accountcontext` by its absolute installed path. Provide `--url` and `--email` on first login, and optionally `ACCOUNTCONTEXT_USER_PASSWORD`; use the person's ordinary `users` identity for both human and agent activity. Never substitute superuser credentials.
 
-For first use run `login --google`, `whoami`, then `check`. Google login opens a loopback callback at port 8765; over SSH forward that port from the browser computer. The session token is saved privately per server and email in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or in `ACCOUNTCONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out; a session left in `~/.cache/accountcontext/` by an older client is moved there on first use. `logout` removes only the local session, from both locations. Disabled users must sign in again after re-enabling.
+For first use run `login --google`, `whoami`, then `check`. Google login opens a loopback callback at port 8765; over SSH forward that port from the browser computer. The session token is saved privately per server and email in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or in `ACCOUNTCONTEXT_SESSION_DIR` when set, so clearing `~/.cache` does not sign you out. `logout` removes the selected local token and retains default settings. Disabled users must sign in again after re-enabling.
 
 Read [schema](references/schema.md) and [workflows](references/workflows.md) before financial writes. [Examples](references/examples.md) covers CLI syntax, CSV imports and exports. The generated [schema snapshot](references/schema.json) describes SQL exposure; `schema` returns the live contract.
 
@@ -40,3 +40,11 @@ The server keeps requested traces in a bounded 16 MiB memory buffer with short e
 ## Browser record links
 
 The authenticated reader is available at the application origin. Link to a record with `/#/<collection>/<record-id>` using its stable ID, for example `/#/claims/<record-id>`. Links open current authorized data and grant no access. Use the reader’s Copy record link action for wiki references; retain immutable evidence in WikiContext when a historical claim requires it. Never include auth tokens or protected file URLs in wiki links. Opening a link does not acknowledge messages or notifications.
+
+## Saved CLI login settings
+
+Sign in once with `accountcontext login --google --url https://your-server.example --email you@example.com`, or use `--password` with `ACCOUNTCONTEXT_USER_PASSWORD` for a provisioned password account. The password is supplied through the environment, never as a CLI argument.
+
+URL and email resolve from CLI options, then `ACCOUNTCONTEXT_URL` / `ACCOUNTCONTEXT_USER_EMAIL`, then saved defaults. `--url` and `--email` work before or after the command. Later commands need no URL/email exports. Successful explicit login writes `default.json` containing only URL and email alongside the per-account token file in `$XDG_STATE_HOME/accountcontext/` (default `~/.local/state/accountcontext/`), or `ACCOUNTCONTEXT_SESSION_DIR`. Files use mode 0600 and the directory 0700. Ordinary commands and token refresh never change the default account. Tokens are selected only for the exact resolved server/email pair.
+
+`accountcontext logout` removes the selected token and retains settings for the next login. `accountcontext logout --forget` also removes the default when it matches that account; other accounts remain untouched. Old cache sessions are not migrated: sign in again. A malformed or unsafe default file must be fixed or removed before continuing.
