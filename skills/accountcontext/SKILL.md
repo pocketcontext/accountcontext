@@ -24,11 +24,13 @@ The executable `accountcontext` beside this file is a standalone uv launcher. In
 
 ## Optional request tracing
 
-Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then set `OBSERVECONTEXT_URL=https://observe.pocketcontext.com` and `OBSERVECONTEXT_USER_EMAIL` to your Workspace email and run `observecontext login --google` separately. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
+Ordinary commands do not collect or upload traces. Install the separate ObserveContext skill to opt in for one command. Authenticate with this app normally, then run `observecontext login --google --url https://observe.pocketcontext.com --email you@pocketcontext.com` separately; later commands use saved defaults. ObserveContext uses its own account and token; no ObserveContext credentials belong on this application server.
+
+Replace `https://your-server.example` with the same application origin used at login.
 
 ```sh
 observecontext capture \
-  --url "${ACCOUNTCONTEXT_URL}" --service accountcontext.client --upload \
+  --url https://your-server.example --service accountcontext.client --upload \
   -- accountcontext \
   query 'SELECT id FROM claims LIMIT 5'
 ```
